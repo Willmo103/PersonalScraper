@@ -1,0 +1,10 @@
+# api/requirements.txt
+fastapi
+uvicorn
+redis
+chromadb
+sentence-transformers
+beautifulsoup4
+html2text
+pyyaml
+requests
