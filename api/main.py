@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 from datetime import datetime, timedelta
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
@@ -42,6 +42,7 @@ class StaticData(BaseModel):
     timestamp: str
     type: str
     data: dict
+
 
 @app.post("/visit")
 async def record_visit(visit: VisitData):
@@ -137,7 +138,7 @@ async def get_visits(url: str, start_version: int = 0, end_version: int = None):
     try:
         where_clause = {"url": url}
         if end_version is not None:
-            where_clause["version"] = {"$gte": start_version, "$lte": end_version}
+            where_clause["version"] = {"$gte": start_version, "$lte": end_version}  # noqa
         else:
             where_clause["version"] = {"$gte": start_version}
 
