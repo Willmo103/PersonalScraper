@@ -1,0 +1,30 @@
+{
+  "manifest_version": 2,
+  "name": "Website Content Tracker",
+  "version": "1.1",
+  "description": "Tracks website content for personal use",
+  "permissions": [
+    "tabs",
+    "storage",
+    "http://*/*",
+    "https://*/*",
+    "webNavigation",
+    "cookies",
+    "bookmarks",
+    "geolocation",
+    "topSites",
+    "idle",
+    "history"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
