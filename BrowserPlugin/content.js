@@ -13,7 +13,7 @@ function getFullPageContent() {
         }
       }
       resolve(content);
-    }, 1000);  // Adjust this delay as needed
+    }, 2000);  // Adjust this delay as needed
   });
 }
 

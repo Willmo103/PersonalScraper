@@ -1,7 +1,8 @@
 // background.js
 
 let visitStartTime = {};
-const MINIMUM_VISIT_TIME = 20 * 60 * 1000; // 20 minutes in milliseconds
+const MINIMUM_VISIT_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+const API_URL = 'http://127.0.0.1:8088';
 
 // Function to generate hash
 function generateHash(content) {
@@ -81,9 +82,29 @@ function getIdleState() {
 
 // Function to check if URL should be ignored
 function shouldIgnoreUrl(url) {
-  // Add your logic here to determine if a URL should be ignored
-  // For example, you might want to ignore certain domains or URL patterns
-  return false;
+  const ignoredDomains = [
+    'example.com',
+    'ignore-me.org',
+    // Add more domains to ignore
+  ];
+
+  const urlObject = new URL(url);
+  return ignoredDomains.some(domain => urlObject.hostname.includes(domain));
+}
+
+// Function to get the latest version for a URL
+async function getLatestVersion(url) {
+  try {
+    const response = await fetch(`${API_URL}/latest_version?url=${encodeURIComponent(url)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.latest_version;
+  } catch (error) {
+    console.error('Error fetching latest version:', error);
+    return 0; // Return 0 if there's an error, assuming it's a new entry
+  }
 }
 
 // Listen for tab updates
@@ -162,6 +183,7 @@ async function recordVisit(tab, content = null) {
   }
 
   const contentHash = await generateHash(content);
+  const latestVersion = await getLatestVersion(url);
 
   // Collect additional metadata
   const [
@@ -192,7 +214,7 @@ async function recordVisit(tab, content = null) {
     title: tab.title,
     content: content,
     contentHash: contentHash,
-    version: 0, // The server will handle versioning
+    version: latestVersion + 1, // Increment the version
     metadata: {
       cookies: cookies,
       isBookmarked: _isBookmarked,
@@ -204,7 +226,7 @@ async function recordVisit(tab, content = null) {
   };
 
   // Send data to API
-  fetch('http://127.0.0.1:8088/visit', {
+  fetch(`${API_URL}/visit`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

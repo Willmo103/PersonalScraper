@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import html2text
 import yaml
 from urllib.parse import urljoin
+from datetime import datetime, timedelta
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +19,8 @@ app = FastAPI()
 
 # Initialize ChromaDB client
 chroma_client = chromadb.HttpClient(host=os.getenv('CHROMA_HOST', 'localhost'), port=8000)
-collection = chroma_client.get_or_create_collection("website_visits")
+visit_collection = chroma_client.get_or_create_collection("website_visits")
+static_collection = chroma_client.get_or_create_collection("static_data")
 
 # Initialize sentence transformer model
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -36,25 +38,10 @@ class VisitData(BaseModel):
     version: int
     metadata: dict
 
-def clean_and_convert_to_markdown(html_content, base_url, metadata):
-    try:
-        # Parse HTML
-        soup = BeautifulSoup(html_content, 'html.parser')
-
-        # Extract links and images
-        metadata["links"] = [urljoin(base_url, link['href']) for link in soup.find_all('a', href=True)]
-        metadata["images"] = [urljoin(base_url, img['src']) for img in soup.find_all('img', src=True)]
-
-        # Convert to Markdown
-        markdown_content = h.handle(str(soup))
-
-        return metadata, markdown_content
-    except Exception as e:
-        logger.error(f"Error in clean_and_convert_to_markdown: {str(e)}")
-        raise
-
-def create_yaml_header(metadata):
-    return yaml.dump(metadata, default_flow_style=False)
+class StaticData(BaseModel):
+    timestamp: str
+    type: str
+    data: dict
 
 @app.post("/visit")
 async def record_visit(visit: VisitData):
@@ -63,7 +50,7 @@ async def record_visit(visit: VisitData):
 
     try:
         # Check if this content hash already exists
-        existing_visits = collection.query(
+        existing_visits = visit_collection.query(
             query_texts=[visit.contentHash],
             where={"$and": [{"url": visit.url}, {"contentHash": visit.contentHash}]},
             n_results=1
@@ -73,18 +60,14 @@ async def record_visit(visit: VisitData):
             logger.info(f"Content already exists for URL: {visit.url}")
             return {"status": "skipped", "message": "Content already exists"}
 
-        # Clean and convert content
+        # Process visit data
         metadata, markdown_content = clean_and_convert_to_markdown(visit.content, visit.url, visit.metadata)
-
-        # Create YAML header
         yaml_header = create_yaml_header(metadata)
-
-        # Combine YAML header and Markdown content
         full_content = f"---\n{yaml_header}---\n\n{markdown_content}"
 
-        # Embed and store in ChromaDB
+        # Store visit data
         embedding = model.encode(markdown_content).tolist()
-        collection.add(
+        visit_collection.add(
             documents=[full_content],
             metadatas=[{
                 "url": visit.url,
@@ -97,11 +80,57 @@ async def record_visit(visit: VisitData):
             embeddings=[embedding]
         )
 
+        # Process static data
+        await process_static_data(visit.metadata)
+
         logger.info(f"Visit recorded: {visit.url} (version {visit.version})")
         return {"status": "success", "message": "Visit recorded"}
     except Exception as e:
         logger.error(f"Error in record_visit: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing visit: {str(e)}")
+
+async def process_static_data(metadata):
+    timestamp = datetime.now().isoformat()
+
+    # Process cookies
+    if 'cookies' in metadata:
+        static_collection.add(
+            documents=[yaml.dump(metadata['cookies'])],
+            metadatas=[{"type": "cookies", "timestamp": timestamp}],
+            ids=[f"cookies:{timestamp}"]
+        )
+
+    # Process recent history
+    if 'recentHistory' in metadata:
+        static_collection.add(
+            documents=[yaml.dump(metadata['recentHistory'])],
+            metadatas=[{"type": "recentHistory", "timestamp": timestamp}],
+            ids=[f"recentHistory:{timestamp}"]
+        )
+
+@app.get("/static-data/{data_type}")
+async def get_static_data(data_type: str, start_time: str = None, end_time: str = None):
+    try:
+        where_clause = {"type": data_type}
+        if start_time and end_time:
+            where_clause["timestamp"] = {"$gte": start_time, "$lte": end_time}
+
+        results = static_collection.query(
+            query_texts=[""],
+            where=where_clause,
+            n_results=1000  # Adjust as needed
+        )
+
+        return [
+            {
+                "timestamp": meta["timestamp"],
+                "data": yaml.safe_load(doc)
+            }
+            for meta, doc in zip(results["metadatas"], results["documents"])
+        ]
+    except Exception as e:
+        logger.error(f"Error in get_static_data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving static data: {str(e)}")
 
 @app.get("/visits")
 async def get_visits(url: str, start_version: int = 0, end_version: int = None):
@@ -112,7 +141,7 @@ async def get_visits(url: str, start_version: int = 0, end_version: int = None):
         else:
             where_clause["version"] = {"$gte": start_version}
 
-        results = collection.query(
+        results = visit_collection.query(
             query_texts=[""],
             where=where_clause,
             n_results=1000  # Adjust as needed
@@ -137,7 +166,7 @@ async def get_visits(url: str, start_version: int = 0, end_version: int = None):
 @app.get("/search")
 async def search_visits(query: str, limit: int = 5):
     try:
-        results = collection.query(
+        results = visit_collection.query(
             query_texts=[query],
             n_results=limit
         )
@@ -149,7 +178,7 @@ async def search_visits(query: str, limit: int = 5):
 @app.get("/latest_version")
 async def get_latest_version(url: str):
     try:
-        results = collection.query(
+        results = visit_collection.query(
             query_texts=[""],
             where={"url": url},
             n_results=1,
@@ -162,3 +191,39 @@ async def get_latest_version(url: str):
     except Exception as e:
         logger.error(f"Error in get_latest_version: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving latest version: {str(e)}")
+
+
+@app.get("/chroma-stats")
+async def get_chroma_stats():
+    try:
+        visit_count = len(visit_collection.get()['ids'])
+        static_data_count = len(static_collection.get()['ids'])
+        return {
+            "visit_count": visit_count,
+            "static_data_count": static_data_count
+        }
+    except Exception as e:
+        logger.error(f"Error in get_chroma_stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving Chroma stats: {str(e)}")
+
+
+def clean_and_convert_to_markdown(html_content, base_url, metadata):
+    try:
+        # Parse HTML
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Extract links and images
+        metadata["links"] = [urljoin(base_url, link['href']) for link in soup.find_all('a', href=True)]
+        metadata["images"] = [urljoin(base_url, img['src']) for img in soup.find_all('img', src=True)]
+
+        # Convert to Markdown
+        markdown_content = h.handle(str(soup))
+
+        return metadata, markdown_content
+    except Exception as e:
+        logger.error(f"Error in clean_and_convert_to_markdown: {str(e)}")
+        raise
+
+def create_yaml_header(metadata):
+    return yaml.dump(metadata, default_flow_style=False)
+
