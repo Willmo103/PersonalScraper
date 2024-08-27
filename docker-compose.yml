@@ -62,8 +62,12 @@ services:
     environment:
       - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    volumes:
+      - ./pg_admin-data:/var/lib/pgadmin
     ports:
       - "8018:80"
-    restart: unless-stopped
+    depends_on:
+      - postgres
+    restart: always
 
 volumes: {}
