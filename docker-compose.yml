@@ -6,7 +6,6 @@ services:
     ports:
       - "8088:8088"
     depends_on:
-      - redis
       - chroma
       - postgres
     environment:
@@ -24,11 +23,6 @@ services:
               count: 1
               capabilities: [gpu]
     restart: unless-stopped
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
 
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
