@@ -264,4 +264,3 @@ async def get_cookies(url: str, db: Session = Depends(get_db)):
             for cookie in cookies
         ]
     return {"message": f"No cookies found for {url}"}
-
