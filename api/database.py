@@ -26,7 +26,7 @@ class Visit(Base):
     version = Column(Integer)
     content_hash = Column(String)
     cleaned_content = Column(Text)
-    metadata = Column(Text)  # Store as JSON
+    visit_metadata = Column(Text)  # Store as JSON
 
     website = relationship("Website", back_populates="visits")
 

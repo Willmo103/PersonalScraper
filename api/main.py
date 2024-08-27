@@ -19,8 +19,9 @@ def get_db():
         db.close()
 
 # Chroma client
-chroma_client = chromadb.Client(Config.CHROMA_HOST)
-collection = chroma_client.create_collection("web_content")
+chroma_client = chromadb.HttpClient(Config.CHROMA_HOST)
+collection = chroma_client.get_or_create_collection("webtracker")
+
 
 class VisitData(BaseModel):
     timestamp: str
@@ -50,14 +51,16 @@ async def record_visit(visit_data: VisitData, db: Session = Depends(get_db)):
     if existing_visit:
         return {"message": f"Content for {visit_data.url} hasn't changed"}
 
+    formatted_timestamp = datetime.strptime(visit_data.timestamp, '%Y-%m-%dT%H:%M:%S.%f')
+
     # Create new visit
     new_visit = Visit(
         website_id=website.id,
-        timestamp=datetime.fromisoformat(visit_data.timestamp),
+        timestamp=formatted_timestamp,
         version=visit_data.version,
         content_hash=visit_data.contentHash,
         cleaned_content=visit_data.content,
-        metadata=json.dumps(visit_data.metadata)
+        visit_metadata=json.dumps(visit_data.metadata)
     )
     db.add(new_visit)
 

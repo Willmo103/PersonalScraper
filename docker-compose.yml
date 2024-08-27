@@ -6,9 +6,10 @@ services:
     ports:
       - "8088:8088"
     depends_on:
-      - redis
-      - chroma
-      - postgres
+      chroma:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       - REDIS_HOST=redis
       - CHROMA_HOST=chroma
@@ -35,6 +36,11 @@ services:
       - "8080:8000"
     volumes:
       - ./chroma-data:/chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     deploy:
       resources:
         reservations:
@@ -53,5 +59,10 @@ services:
       - ./postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes: {}
