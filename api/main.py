@@ -165,4 +165,18 @@ async def get_latest_version(url: str, db: Session = Depends(get_db)):
     return {"latest_version": 0}
 
 
-# Add more endpoints as needed for querying and analysis
+# PROPOSED ROUTES
+# @app.get("/visit/{visit_id}") -- Get visit data by visit_id
+
+# @app.get("/visits") -- Get all visits
+
+# @app.get("/visits/{website_id}") -- Get all visits for a website
+
+# @app.get("/visits/{website_id}/latest") -- Get latest visit for a website
+
+# @app.get("/visits/{website_id}/versions") -- Get all versions for a website
+
+# @app.get("/vector_search") -- Search for similar content PARAMS: search_term: str, k: int
+
+# @app.get("/search") -- Search for content in the database PARAMS: search_term: str
+
