@@ -51,12 +51,10 @@ async def record_visit(visit_data: VisitData, db: Session = Depends(get_db)):
     if existing_visit:
         return {"message": f"Content for {visit_data.url} hasn't changed"}
 
-    formatted_timestamp = datetime.strptime(visit_data.timestamp, '%Y-%m-%dT%H:%M:%S.%f')
-
     # Create new visit
     new_visit = Visit(
         website_id=website.id,
-        timestamp=formatted_timestamp,
+        timestamp=datetime.now(),
         version=visit_data.version,
         content_hash=visit_data.contentHash,
         cleaned_content=visit_data.content,

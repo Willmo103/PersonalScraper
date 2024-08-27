@@ -1,4 +1,6 @@
 # api/database.py
+from datetime import datetime
+
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -22,7 +24,7 @@ class Visit(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     website_id = Column(Integer, ForeignKey("websites.id"))
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime, index=True, default=datetime.now())
     version = Column(Integer)
     content_hash = Column(String)
     cleaned_content = Column(Text)
