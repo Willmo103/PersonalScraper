@@ -6,10 +6,9 @@ services:
     ports:
       - "8088:8088"
     depends_on:
-      chroma:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
+      - redis
+      - chroma
+      - postgres
     environment:
       - REDIS_HOST=redis
       - CHROMA_HOST=chroma
@@ -24,6 +23,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    restart: unless-stopped
 
   redis:
     image: redis:alpine
@@ -36,11 +36,6 @@ services:
       - "8080:8000"
     volumes:
       - ./chroma-data:/chroma/chroma
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
     deploy:
       resources:
         reservations:
@@ -48,6 +43,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    restart: unless-stopped
 
   postgres:
     image: postgres:13
@@ -59,10 +55,15 @@ services:
       - ./postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    restart: unless-stopped
+
+  pg_admin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "8018:80"
+    restart: unless-stopped
 
 volumes: {}
