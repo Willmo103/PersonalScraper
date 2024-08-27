@@ -165,18 +165,103 @@ async def get_latest_version(url: str, db: Session = Depends(get_db)):
     return {"latest_version": 0}
 
 
-# PROPOSED ROUTES
-# @app.get("/visit/{visit_id}") -- Get visit data by visit_id
+@app.get("/visits")
+async def get_visits(url: str, db: Session = Depends(get_db)):
+    website = db.query(Website).filter(Website.url == url).first()
+    if website:
+        visits = db.query(Visit).filter(Visit.website_id == website.id).all()
+        return {
+            "url": url,
+            "visits": [
+                {
+                    "timestamp": visit.timestamp,
+                    "version": visit.version,
+                    "title": visit.title,
+                    "is_bookmarked": visit.is_bookmarked,
+                    "idle_state": visit.idle_state,
+                }
+                for visit in visits
+            ],
+        }
+    return {"message": f"No visits found for {url}"}
 
-# @app.get("/visits") -- Get all visits
 
-# @app.get("/visits/{website_id}") -- Get all visits for a website
+@app.get("/browsing_history")
+async def get_browsing_history(
+    url: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(BrowsingHistory)
 
-# @app.get("/visits/{website_id}/latest") -- Get latest visit for a website
+    if url:
+        query = query.filter(BrowsingHistory.url == url)
 
-# @app.get("/visits/{website_id}/versions") -- Get all versions for a website
+    if start_date:
+        start_date = datetime.fromisoformat(start_date)
+        query = query.filter(BrowsingHistory.last_visit_time >= start_date)
 
-# @app.get("/vector_search") -- Search for similar content PARAMS: search_term: str, k: int
+    if end_date:
+        end_date = datetime.fromisoformat(end_date)
+        query = query.filter(BrowsingHistory.last_visit_time <= end_date)
 
-# @app.get("/search") -- Search for content in the database PARAMS: search_term: str
+    history = query.all()
+
+    return [
+        {
+            "url": item.url,
+            "title": item.title,
+            "last_visit_time": item.last_visit_time,
+            "visit_count": item.visit_count,
+        }
+        for item in history
+    ]
+
+
+@app.get("/top_sites")
+async def get_top_sites(db: Session = Depends(get_db)):
+    top_sites = db.query(TopSite).all()
+    return [
+        {
+            "url": site.url,
+            "title": site.title,
+            "last_seen": site.last_seen,
+        }
+        for site in top_sites
+    ]
+
+
+@app.get("/geolocation/{visit_id}")
+async def get_geolocation(visit_id: int, db: Session = Depends(get_db)):
+    geolocation = db.query(Geolocation).filter(Geolocation.visit_id == visit_id).first()
+    if geolocation:
+        return {
+            "latitude": geolocation.latitude,
+            "longitude": geolocation.longitude,
+        }
+    return {"message": "No geolocation data found for this visit"}
+
+
+@app.get("/cookies")
+async def get_cookies(url: str, db: Session = Depends(get_db)):
+    website = db.query(Website).filter(Website.url == url).first()
+    if website:
+        cookies = (
+            db.query(Cookie)
+            .join(Cookie.websites)
+            .filter(Website.id == website.id)
+            .all()
+        )
+        return [
+            {
+                "name": cookie.name,
+                "domain": cookie.domain,
+                "path": cookie.path,
+                "last_seen": cookie.last_seen,
+                "cookie_raw": cookie.cookie_raw,
+            }
+            for cookie in cookies
+        ]
+    return {"message": f"No cookies found for {url}"}
 
