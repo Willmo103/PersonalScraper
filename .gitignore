@@ -7,3 +7,5 @@ test_main.http
 *.pem
 *.crx
 *.env
+postgres-data
+chroma-data
