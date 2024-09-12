@@ -7,11 +7,10 @@ services:
       - "8088:8088"
     depends_on:
       - chroma
-      - postgres
+#      - postgres
     environment:
-      - REDIS_HOST=redis
       - CHROMA_HOST=chroma
-      - POSTGRES_HOST=postgres
+      - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -39,17 +38,17 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
-  postgres:
-    image: postgres:13
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    volumes:
-      - ./postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
+#  postgres:
+#    image: postgres:13
+#    environment:
+#      - POSTGRES_DB=${POSTGRES_DB}
+#      - POSTGRES_USER=${POSTGRES_USER}
+#      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+#    volumes:
+#      - ./postgres-data:/var/lib/postgresql/data
+#    ports:
+#      - "5432:5432"
+#    restart: unless-stopped
 
   pg_admin:
     image: dpage/pgadmin4
@@ -60,8 +59,8 @@ services:
       - ./pg_admin-data:/var/lib/pgadmin
     ports:
       - "8018:80"
-    depends_on:
-      - postgres
+#    depends_on:
+#      - postgres
     restart: always
 
 volumes: {}
