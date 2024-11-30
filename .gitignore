@@ -7,7 +7,4 @@ test_main.http
 *.pem
 *.crx
 *.env
-postgres-data
-chroma-data
-pg_admin-data
 codebase.*.md
