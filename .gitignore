@@ -10,3 +10,4 @@ test_main.http
 postgres-data
 chroma-data
 pg_admin-data
+codebase.*.md
